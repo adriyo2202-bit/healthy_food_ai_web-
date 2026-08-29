@@ -1,16 +1,23 @@
 import os
-from mistralai.client import Mistral
+import urllib.request
+import urllib.error
+import json
+import ssl
 
 def generate_engaging_diet_plan(age: int, height: float, weight: float, goal: str) -> str:
     """
-    Calls the Mistral AI API to generate an engaging diet and fitness plan.
+    Calls the Hugging Face Inference API to generate an engaging diet and fitness plan.
     """
-    api_key = os.environ.get("MISTRAL_API_KEY")
+    api_key = os.environ.get("HF_TOKEN")
     if not api_key:
-        return "⚠️ **Error:** MISTRAL_API_KEY environment variable is not set. Please set it to use the AI features."
+        return "⚠️ **Error:** HF_TOKEN environment variable is not set. Please set it to use the AI features."
         
     try:
-        client = Mistral(api_key=api_key)
+        url = "https://api.mistral.ai/v1/chat/completions"
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {api_key}"
+        }
         
         prompt = f"""
 You are an energetic, fun, and highly engaging fitness and diet coach.
@@ -26,18 +33,25 @@ Please do the following in a highly animated, engaging, and readable way (use em
 6. Make the tone extremely engaging and real, like an enthusiastic YouTube fitness coach talking directly to me!
 """
 
-        # Using mistral-large-latest for the best conversational ability and following complex instructions
-        chat_response = client.chat.complete(
-            model="mistral-large-latest",
-            messages=[
+        data = {
+            "model": "mistral-small-latest",
+            "messages": [
                 {
                     "role": "user",
                     "content": prompt,
-                },
-            ]
-        )
+                }
+            ],
+            "temperature": 0.7
+        }
         
-        return chat_response.choices[0].message.content
+        req = urllib.request.Request(url, headers=headers, data=json.dumps(data).encode('utf-8'))
+        context = ssl._create_unverified_context()
         
+        with urllib.request.urlopen(req, context=context, timeout=45) as response:
+            res_data = json.loads(response.read().decode('utf-8'))
+            return res_data['choices'][0]['message']['content']
+            
+    except urllib.error.HTTPError as e:
+        return f"⚠️ **API Error:** HTTP {e.code} - {e.read().decode('utf-8')}"
     except Exception as e:
-        return f"⚠️ **Mistral API Error:** {str(e)}"
+        return f"⚠️ **API Error:** {str(e)}"
